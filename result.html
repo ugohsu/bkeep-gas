@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <?!= HtmlService.createHtmlOutputFromFile('css').getContent(); ?>
+  </head>
+  <body>
+    送信が完了しました。<br><br>
+    <a href=<?!= URL; ?>>もう一度解答する</a>
+    <br><br>同日の取引は以下のとおりです。
+    <p>
+      <?!= confirmdata; ?>
+    </p>
+    <a href=<?!= SSURL; ?>>スプレッドシートにアクセス</a>
+  </body>
+</html>
