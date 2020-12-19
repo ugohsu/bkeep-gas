@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <?!= HtmlService.createHtmlOutputFromFile('css').getContent(); ?>
+  </head>
+  <body>
+    <h1>記帳フォーム</h1>
+    <form method="post" action=<?!= ENTURL; ?>>
+      <p>
+        <!-- パスワード: <input type='password' name='pass' autocomplete='on' /><br> -->
+        取引日: <input type='date' name='date' id='today' />
+        &ensp;<input type="submit" value="送信" />
+      </p>
+      <table>
+        <thread>
+          <tr>
+            <th>貸借</th>
+            <th>科目</th>
+            <th>金額</th>
+          </tr>
+        </thread>
+        <tbody id="databody">
+          <tr>
+            <td>
+              <select name="DC">
+                <option value="Dr">借</option>
+                <option value="Cr">貸</option>
+              </select>
+            </td>
+            <td><input type='text' name="account" list="completion" /></td>
+            <td><input type='number' name="amount" /></td>
+          </tr>
+          <tr>
+            <td>
+              <select name="DC">
+                <option value="Cr">貸</option>
+                <option value="Dr">借</option>
+              </select>
+            </td>
+            <td><input type='text' name="account" list="completion" /></td>
+            <td><input type='number' name="amount" /></td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td><button id="add" type="button">＋</button></td>
+          </tr>
+        </tfoot>
+      </table>
+      <p>
+        備考: <input type="text" name="note" />　日割計算: <input type="checkbox" name="adj" value="1" />
+      </p>
+    </form>
+    <h1>リンク</h1>
+    <p>
+    <a href=<?!= ENTURL; ?>><img src="https://dl.dropboxusercontent.com/s/ciwe8zzi2adh37p/entry01.png?dl=0
+"></a>
+    <a href=<?!= JNLURL; ?>><img src="https://dl.dropboxusercontent.com/s/d4xqehp0i5cm5iu/journal01.png?dl=0"></a>
+    <a href=<?!= CALCURL; ?>><img src="https://dl.dropboxusercontent.com/s/k7fwuzffh2srypl/calc01.png?dl=0
+"></a>
+    <a href=<?!= FSURL; ?>><img src="https://dl.dropboxusercontent.com/s/4bb90hsy38x9awy/database01.png?dl=0"></a>
+    <a href=<?!= ANALURL; ?>><img src="https://dl.dropboxusercontent.com/s/g1o6m99fih9w25d/graph01.png?dl=0
+"></a>
+    </p>
+    <?!= CompWithLabel; ?>
+    <?!= HtmlService.createHtmlOutputFromFile('js').getContent(); ?>
+  </body>
+</html>

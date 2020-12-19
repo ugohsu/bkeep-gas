@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <base target="_top">
+    <?!= HtmlService.createHtmlOutputFromFile('css').getContent(); ?>
+  </head>
+  <body>
+    <h1>同日の取引一覧</h1>
+    <p>
+      <?!= confirmdata; ?>
+    </p>
+    <h1>リンク</h1>
+    <p>
+    <a href=<?!= ENTURL; ?>><img src="https://dl.dropboxusercontent.com/s/ciwe8zzi2adh37p/entry01.png?dl=0
+"></a>
+    <a href=<?!= JNLURL; ?>><img src="https://dl.dropboxusercontent.com/s/d4xqehp0i5cm5iu/journal01.png?dl=0"></a>
+    <a href=<?!= CALCURL; ?>><img src="https://dl.dropboxusercontent.com/s/k7fwuzffh2srypl/calc01.png?dl=0
+"></a>
+    <a href=<?!= FSURL; ?>><img src="https://dl.dropboxusercontent.com/s/4bb90hsy38x9awy/database01.png?dl=0"></a>
+    <a href=<?!= ANALURL; ?>><img src="https://dl.dropboxusercontent.com/s/g1o6m99fih9w25d/graph01.png?dl=0
+"></a>
+    </p>
+    <?!= CompWithLabel; ?>
+    <?!= HtmlService.createHtmlOutputFromFile('js').getContent(); ?>
+  </body>
+</html>
