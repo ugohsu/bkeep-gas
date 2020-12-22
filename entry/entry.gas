@@ -7,7 +7,7 @@ const JNLID = '1FO9Lpw8qpjuWtOi0hcdNxUH0O0_iASFEijPZs3q16uU';
 const FSID = '1o0hYHuFBy7f9336fCpZsC4up9N1qNjjyhr-KzkKfX-I'; // 財務諸表シートの ID
 const ENTURL = "https://script.google.com/macros/s/AKfycbypB1J210SxBc8sycedUaLlL6VNsVIPEFuvWNdN/exec";
 const CALCURL = 'https://script.google.com/macros/s/AKfycbxFGIqy1AWG5Gk679FAqWu4EMUClLrQcLY0SXH8uQ/exec';
-const ANALURL = '';
+const ANALURL = 'https://datastudio.google.com/s/oU7k5aPgNJA';
 
 // ID からスプレッドシートの取得
 const JNL = SpreadsheetApp.openById(JNLID);
@@ -17,9 +17,6 @@ const FSURL = 'https://docs.google.com/spreadsheets/d/' + FSID + '/edit';
 
 // エラーメッセージ
 let ERR;
-
-// アクセス可能なパスワード
-const Password = ["1111"];
 
 // 勘定科目名の取得
 const fullComp = getData(JNL.getSheetByName('COA')).slice(1);
@@ -35,7 +32,8 @@ function doGet() {
     const htmlOutput = HtmlService.createTemplateFromFile('index').evaluate();
     htmlOutput
     // スマホ対応
-        .addMetaTag('viewport', 'width=device=width, initial-scale=1');
+        .addMetaTag('viewport', 'width=device=width, initial-scale=1')
+        .setTitle('bkeep-entry');
     return htmlOutput;
 }
 
@@ -153,7 +151,8 @@ function doPost (postdata) {
     let resultOutput = HtmlService.createTemplateFromFile('result').evaluate();
     resultOutput
     // スマホ対応
-        .addMetaTag('viewport', 'width=device=width, initial-scale=1');
+        .addMetaTag('viewport', 'width=device=width, initial-scale=1')
+        .setTitle('bkeep-entry-result');
     return resultOutput;
 }
 
