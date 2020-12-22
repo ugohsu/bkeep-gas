@@ -14,9 +14,11 @@ const JNL = SpreadsheetApp.openById(JNLID); // 帳簿
 const JNLURL = 'https://docs.google.com/spreadsheets/d/' + JNLID + '/edit';
 const JNLNames = JNL.getSheets().map(x => x.getSheetName());
 const FSS = SpreadsheetApp.openById(FSID); // 財務諸表
+const FSSHEET = FSS.getSheetByName('fs'); // メインデータ
+const FSTIDY = FSS.getSheetByName('tidy'); // 整然データ
 const FSURL = 'https://docs.google.com/spreadsheets/d/' + FSID + '/edit';
 let FSARRAY = convertArray(FSS.getSheetByName('fs').getDataRange().getValues());
-let TIDY = {};
+
 
 // 勘定科目名の取得
 const Def = convertArray(JNL.getSheetByName('COA').getDataRange().getValues());
@@ -26,6 +28,7 @@ const TAGLIST = mkTagList();
 
 // その他の変数・定数
 const today = new Date();
+let TIDY = {};
 let TABLELIST = {};
 let WARNINGS = '';
 
@@ -332,15 +335,13 @@ function mkTidy () {
 function writeSpreadSheet () {
     // fs sheet
     let fsbody = [FSARRAY.indexarray].concat(FSARRAY.body);
-    let sheet = FSS.getSheetByName('fs');
-    sheet.clearContents();
-    sheet.getRange(1, 1, fsbody.length, fsbody[0].length).setValues(fsbody);
+    FSSHEET.clearContents();
+    FSSHEET.getRange(1, 1, fsbody.length, fsbody[0].length).setValues(fsbody);
     
     // tidy sheet
     fsbody = [TIDY.indexarray].concat(TIDY.body);
-    sheet = FSS.getSheetByName('tidy');
-    sheet.clearContents();
-    sheet.getRange(1, 1, fsbody.length, fsbody[0].length).setValues(fsbody);
+    FSTIDY.clearContents();
+    FSTIDY.getRange(1, 1, fsbody.length, fsbody[0].length).setValues(fsbody);
     
     /*
     // tag sheet
