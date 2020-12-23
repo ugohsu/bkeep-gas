@@ -14,8 +14,6 @@ const JNL = SpreadsheetApp.openById(JNLID); // 帳簿
 const JNLURL = 'https://docs.google.com/spreadsheets/d/' + JNLID + '/edit';
 const JNLNames = JNL.getSheets().map(x => x.getSheetName());
 const FSS = SpreadsheetApp.openById(FSID); // 財務諸表
-const FSSHEET = FSS.getSheetByName('fs'); // メインデータ
-const FSTIDY = FSS.getSheetByName('tidy'); // 整然データ
 const FSURL = 'https://docs.google.com/spreadsheets/d/' + FSID + '/edit';
 let FSARRAY = convertArray(FSS.getSheetByName('fs').getDataRange().getValues());
 
@@ -25,6 +23,7 @@ const Def = convertArray(JNL.getSheetByName('COA').getDataRange().getValues());
 const fullComp = Def['body'];
 const Comp = fullComp.map(x => x[1]);
 const TAGLIST = mkTagList();
+const TAGS = uniq(TAGLIST.map(x => x[1]));
 
 // その他の変数・定数
 const today = new Date();
@@ -46,8 +45,6 @@ if (JNLNames.indexOf(YM) != -1) {
     reflectProgress(monthjnl);
     MONTHFS = calcFS(monthjnl, Number(YM));
     registerFS(MONTHFS, Number(YM));
-    mkTidy();
-    writeSpreadSheet();
 } 
 
 mkTable();
@@ -64,6 +61,12 @@ function doGet() {
         .addMetaTag('viewport', 'width=device=width, initial-scale=1')
         .setTitle('bkeep-make');
     return htmlOutput;
+}
+
+// 記録
+function doWrite () {
+    mkTidy();
+    writeSpreadSheet();
 }
 
 // doPost (すべての取得可能な決算月について再計算をする)
@@ -106,16 +109,16 @@ function reflectProgress (monthdata) {
     
     // progress を適用
     let progress = calcProgress(today);
-    for (let i = 0; i < monthdata['body'].length; i++) {
+    for (let i = 0; i < monthdata.body.length; i++) {
         // 日割計算科目については amount に進捗度を乗じる
-        if (monthdata['body'][i][adj] == 1) {
-            let x = monthdata['body'][i][amount] * progress;
+        if (monthdata.body[i][adj] == 1) {
+            let x = monthdata.body[i][amount] * progress;
             if (x > 0) {
                 x = Math.floor(x);
             } else {
                 x = Math.ceil(x);
             }
-            monthdata['body'][i][amount] = x;
+            monthdata.body[i][amount] = x;
         }
     }
 }
@@ -164,29 +167,16 @@ function calcFS (monthdata, YM) {
     
     // タグの集計値
     FS['tags'] = {};
-    uniq(TAGLIST.map(x => x[1])).forEach(
-        function (tag) {
-            let value = 0;
-            TAGLIST.filter(x => x[1] == tag).map(x => x[0]).forEach(
-                function (item) {
-                    if (Object.keys(FS.assets).indexOf(item) != -1) {
-                        value = value + FS.assets[item];
-                    } else if (Object.keys(FS.liabilities).indexOf(item) != -1) {
-                        value = value - FS.liabilities[item];
-                    } else if (Object.keys(FS.equity).indexOf(item) != -1) {
-                        value = value - FS.equity[item];
-                    } else if (Object.keys(FS.revenues).indexOf(item) != -1) {
-                        value = value - FS.revenues[item];
-                    } else if (Object.keys(FS.expenses).indexOf(item) != -1) {
-                        value = value + FS.expenses[item];
-                    }
-                }
-            );
-            FS.tags[tag] = value;
-        }
-    );
-    
-    delete FS.tags[''];
+    // basis が含まれる場合のみ実行
+    if (TAGS.indexOf('basis') != 0) {
+        let value = 0
+        TAGLIST.filter(x => x[1] == 'basis').map(x => x[0]).forEach(
+            function (item) {
+                value = value + FS.revenues[item];
+            }
+        );
+        FS.tags['basis'] = value;
+    }
     
     // 出力
     return FS;
@@ -194,11 +184,12 @@ function calcFS (monthdata, YM) {
 
 // 財務諸表の格納場所の作成
 function initFS (Accounts) {
-    let colnames = ["決算月", "決算日", "当期純利益"].concat( 
-        ["assets", "liabilities", "equity", "revenues", "expenses"],
-        Accounts,
-        uniq(TAGLIST.map(x => x[1]).filter(x => x != ""))
-    );
+    let colnames = ["決算月", "決算日", "当期純利益"]
+        .concat(["assets", "liabilities", "equity", "revenues", "expenses"]);
+    if (TAGS.indexOf('basis') != -1) {
+        colnames.push('basis');
+    }
+    colnames = colnames.concat(Accounts);
     let index = {};
     let body = [];
     
@@ -284,7 +275,8 @@ function registerFS (FS, YM) {
 
 // Google データポータル用のデータベースの作成
 function mkTidy () {
-    let colnames = ["決算月", "決算日", "element", "account", "value", "ratio"];
+    let colnames = ["決算月", "決算日", "element", "account", "value", "ratio", "earnings"];
+    colnames = colnames.concat(TAGS);
     let index = {};
     let body = [];
    
@@ -301,7 +293,8 @@ function mkTidy () {
                 let bodyarray = [FSARRAY.body[i][FSARRAY.index["決算月"]], FSARRAY.body[i][FSARRAY.index["決算日"]]];
             
                 // 財務諸表の要素
-                bodyarray.push(fullComp[Comp.indexOf(account)][Def.index['element']]);
+                let element = fullComp[Comp.indexOf(account)][Def.index['element']];
+                bodyarray.push(element);
                     
                 // 勘定科目
                 bodyarray.push(account);
@@ -312,14 +305,39 @@ function mkTidy () {
                 
                 // 比率の計算
                 let basis;
-                if (['assets', 'liabilities', 'equity'].indexOf(bodyarray[index['element']]) != -1) {
+                if (['assets', 'liabilities', 'equity'].indexOf(element) != -1) {
                     basis = FSARRAY.body[i][FSARRAY.index['assets']];
                 } else if (FSARRAY.indexarray.indexOf('basis') != -1) {
-                    basis = FSARRAY.body[i][FSARRAY.index['basis']] * (-1);
+                    basis = FSARRAY.body[i][FSARRAY.index['basis']];
                 } else {
                     basis = FSARRAY.body[i][FSARRAY.index['revenues']];
                 }
                 bodyarray.push(amount / basis)
+                
+                // earnings の計算
+                if (element == 'revenues') {
+                    bodyarray.push(amount);
+                } else if (element == 'expenses') {
+                    bodyarray.push((-1) * amount);
+                } else {
+                    bodyarray.push(0);
+                }
+                
+                // tags の計算
+                let accountTagList = uniq(TAGLIST.filter(x => x[0] == account).map(x => x[1]));
+                TAGS.forEach(
+                    function (tag) {
+                        if (accountTagList.indexOf(tag) != -1) {
+                            if (['assets', 'expenses'].indexOf(element) != -1) {
+                                bodyarray.push(amount);
+                            } else {
+                                bodyarray.push((-1) * amount);
+                            }
+                        } else {
+                            bodyarray.push(0);
+                        }
+                    }
+                );
                 
                 // bodyarray に出力
                 body.push(bodyarray);
@@ -333,6 +351,9 @@ function mkTidy () {
 
 // スプレッドシートに記録
 function writeSpreadSheet () {
+    let FSSHEET = FSS.getSheetByName('fs'); // メインデータ
+    let FSTIDY = FSS.getSheetByName('tidy'); // 整然データ
+
     // fs sheet
     let fsbody = [FSARRAY.indexarray].concat(FSARRAY.body);
     FSSHEET.clearContents();
@@ -342,14 +363,6 @@ function writeSpreadSheet () {
     fsbody = [TIDY.indexarray].concat(TIDY.body);
     FSTIDY.clearContents();
     FSTIDY.getRange(1, 1, fsbody.length, fsbody[0].length).setValues(fsbody);
-    
-    /*
-    // tag sheet
-    fsbody = [['account', 'tag']].concat(TAGLIST);
-    sheet = FSS.getSheetByName('tag');
-    sheet.clearContents();
-    sheet.getRange(1, 1, fsbody.length, fsbody[0].length).setValues(fsbody);
-    */
 }
 
 // テーブルの作成 (FSARRAY を対象にする)
@@ -467,7 +480,7 @@ function calcAccounts (monthdata, element) {
     if (['revenues', 'liabilities', 'equity'].indexOf(element) !== -1) {
         elembox.forEach(
             function (elem) {
-                result[elem] = monthdata['body']
+                result[elem] = monthdata.body
                     .filter(x => x[monthdata.index['account']] == elem)
                     .map(x => x[monthdata.index['amount']])
                     .reduce((sum, x) => sum + x, 0);
@@ -478,7 +491,7 @@ function calcAccounts (monthdata, element) {
     } else {
         elembox.forEach(
             function (elem) {
-                result[elem] = monthdata['body']
+                result[elem] = monthdata.body
                     .filter(x => x[monthdata.index['account']] == elem)
                     .map(x => x[monthdata.index['amount']])
                     .reduce((sum, x) => sum + x, 0);
@@ -602,52 +615,4 @@ function uniq(array) {
             uniquedArray.push(elem);
     }
     return uniquedArray;
-}
-
-
-function test() {
-    // console.log(calcEarnings(refrectProgress(convertArray(getData(JNL.getSheetByName("202012"))), 2020, 11)));
-    // console.log(calcProgress(today));
-    // console.log(calcProgress(new Date("2020-12-31")));
-    // console.log([1, 2, 3, 4, 5].filter(x => x > 5).reduce((sum, element) => sum + element, 0));
-    // initFS(Comp);
-    // let trg = convertArray(getData(JNL.getSheetByName("202012")));
-    // let adjFS = calcFS(trg, 202011);
-    // registerFS(adjFS, 202011);
-    // reflectProgress(trg);
-    // let pureFS = calcFS(trg, 202012);
-    // console.log(pureFS);
-    // registerFS(pureFS, 202012);
-    // console.log(pureFS);
-    // console.log(FSARRAY);
-    // writeSpreadSheet();
-    // initFS(Comp);
-    // initFS(Comp);
-    // writeSpreadSheet();
-    // console.log(adjFS);
-    // console.log(joinArray(["a", "b", "c"], ["a", "d", "c", "e"]));
-    // console.log(fsbox);
-    // console.log(registerFS(pureFS, fsbox, 202012));
-    // console.log(MONTHFS);
-    /*
-    let Y = 202004;
-    let monthjnl;
-    monthjnl = JNL.getSheetByName(Y.toString()).getDataRange().getValues();
-    while (Y <= 202012) {
-        monthjnl = convertArray(JNL.getSheetByName(Y).getDataRange().getValues());
-        MONTHFS = calcFS(monthjnl, Y);
-        registerFS(MONTHFS, Y);
-        writeSpreadSheet();
-        console.log(Y);
-        Y++;
-    } 
-    */
-    /*
-    let nodata = convertArray(FSS.getSheetByName('nodata').getDataRange().getValues());
-    // let onlycolnames = convertArray(FSS.getSheetByName('onlycolnames').getDataRange().getValues());
-    console.log(nodata);
-    return;
-    */
-    mkTidy();
-    console.log(TIDY);
 }
