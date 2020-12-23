@@ -7,15 +7,18 @@ const JNLID = '1FO9Lpw8qpjuWtOi0hcdNxUH0O0_iASFEijPZs3q16uU';
 const FSID = '1o0hYHuFBy7f9336fCpZsC4up9N1qNjjyhr-KzkKfX-I'; // 財務諸表シートの ID
 const ENTURL = "https://script.google.com/macros/s/AKfycbypB1J210SxBc8sycedUaLlL6VNsVIPEFuvWNdN/exec";
 const CALCURL = 'https://script.google.com/macros/s/AKfycbxFGIqy1AWG5Gk679FAqWu4EMUClLrQcLY0SXH8uQ/exec';
-const ANALURL = '';
+const ANALURL = 'https://datastudio.google.com/s/oU7k5aPgNJA';
 
 // スプレッドシートの取得
 const JNL = SpreadsheetApp.openById(JNLID); // 帳簿
 const JNLURL = 'https://docs.google.com/spreadsheets/d/' + JNLID + '/edit';
 const JNLNames = JNL.getSheets().map(x => x.getSheetName());
 const FSS = SpreadsheetApp.openById(FSID); // 財務諸表
+const FSSHEET = FSS.getSheetByName('fs'); // メインデータ
+const FSTIDY = FSS.getSheetByName('tidy'); // 整然データ
 const FSURL = 'https://docs.google.com/spreadsheets/d/' + FSID + '/edit';
 let FSARRAY = convertArray(FSS.getSheetByName('fs').getDataRange().getValues());
+
 
 // 勘定科目名の取得
 const Def = convertArray(JNL.getSheetByName('COA').getDataRange().getValues());
@@ -25,6 +28,7 @@ const TAGLIST = mkTagList();
 
 // その他の変数・定数
 const today = new Date();
+let TIDY = {};
 let TABLELIST = {};
 let WARNINGS = '';
 
@@ -42,6 +46,7 @@ if (JNLNames.indexOf(YM) != -1) {
     reflectProgress(monthjnl);
     MONTHFS = calcFS(monthjnl, Number(YM));
     registerFS(MONTHFS, Number(YM));
+    mkTidy();
     writeSpreadSheet();
 } 
 
@@ -56,7 +61,8 @@ function doGet() {
     const htmlOutput = HtmlService.createTemplateFromFile('index').evaluate();
     htmlOutput
     // スマホ対応
-        .addMetaTag('viewport', 'width=device=width, initial-scale=1');
+        .addMetaTag('viewport', 'width=device=width, initial-scale=1')
+        .setTitle('bkeep-make');
     return htmlOutput;
 }
 
@@ -78,6 +84,7 @@ function doPost (postdata) {
             registerFS(MONTHFS, trg);
         }
     );
+    mkTidy();
     writeSpreadSheet();
     mkTable();
     
@@ -85,7 +92,8 @@ function doPost (postdata) {
     let resultOutput = HtmlService.createTemplateFromFile('index').evaluate();
     resultOutput
     // スマホ対応
-        .addMetaTag('viewport', 'width=device=width, initial-scale=1');
+        .addMetaTag('viewport', 'width=device=width, initial-scale=1')
+        .setTitle('bkeep-make');
     return resultOutput;
 }
 
@@ -170,7 +178,7 @@ function calcFS (monthdata, YM) {
                     } else if (Object.keys(FS.revenues).indexOf(item) != -1) {
                         value = value - FS.revenues[item];
                     } else if (Object.keys(FS.expenses).indexOf(item) != -1) {
-                        value = value - FS.expenses[item];
+                        value = value + FS.expenses[item];
                     }
                 }
             );
@@ -186,7 +194,7 @@ function calcFS (monthdata, YM) {
 
 // 財務諸表の格納場所の作成
 function initFS (Accounts) {
-    let colnames = ["決算月", "当期純利益"].concat( 
+    let colnames = ["決算月", "決算日", "当期純利益"].concat( 
         ["assets", "liabilities", "equity", "revenues", "expenses"],
         Accounts,
         uniq(TAGLIST.map(x => x[1]).filter(x => x != ""))
@@ -250,10 +258,13 @@ function registerFS (FS, YM) {
         function (account) {
             if (account == '決算月') {
                 fsdata.push(YM);
+            } else if (account == '決算日') {
+                fsdata.push(new Date(Number(YM.toString().substr(0, 4)),
+                    Number(YM.toString().substr(4)), 0));
             } else if (accounts.indexOf(account) != -1) {
                 fsdata.push(accountdata[account]);
             } else {
-                fsdata.push(0)
+                fsdata.push(0);
             }
         }
     );
@@ -271,12 +282,74 @@ function registerFS (FS, YM) {
     
 }
 
+// Google データポータル用のデータベースの作成
+function mkTidy () {
+    let colnames = ["決算月", "決算日", "element", "account", "value", "ratio"];
+    let index = {};
+    let body = [];
+   
+    for (let i = 0; i < colnames.length; i++) {
+        index[colnames[i]] = i;
+    }
+    
+    
+    // TIDY にデータの格納
+    for (let i = 0; i < FSARRAY.body.length; i++) {
+        Comp.forEach(
+            function (account) {
+                // bodyarray の宣言
+                let bodyarray = [FSARRAY.body[i][FSARRAY.index["決算月"]], FSARRAY.body[i][FSARRAY.index["決算日"]]];
+            
+                // 財務諸表の要素
+                bodyarray.push(fullComp[Comp.indexOf(account)][Def.index['element']]);
+                    
+                // 勘定科目
+                bodyarray.push(account);
+                
+                // 金額
+                let amount = FSARRAY.body[i][FSARRAY.index[account]];
+                bodyarray.push(amount);
+                
+                // 比率の計算
+                let basis;
+                if (['assets', 'liabilities', 'equity'].indexOf(bodyarray[index['element']]) != -1) {
+                    basis = FSARRAY.body[i][FSARRAY.index['assets']];
+                } else if (FSARRAY.indexarray.indexOf('basis') != -1) {
+                    basis = FSARRAY.body[i][FSARRAY.index['basis']] * (-1);
+                } else {
+                    basis = FSARRAY.body[i][FSARRAY.index['revenues']];
+                }
+                bodyarray.push(amount / basis)
+                
+                // bodyarray に出力
+                body.push(bodyarray);
+            }
+        );
+        
+    }
+    
+    TIDY = {"index": index, "indexarray": colnames, "body": body};
+}
+
 // スプレッドシートに記録
 function writeSpreadSheet () {
+    // fs sheet
     let fsbody = [FSARRAY.indexarray].concat(FSARRAY.body);
-    let sheet = FSS.getSheetByName('fs');
+    FSSHEET.clearContents();
+    FSSHEET.getRange(1, 1, fsbody.length, fsbody[0].length).setValues(fsbody);
+    
+    // tidy sheet
+    fsbody = [TIDY.indexarray].concat(TIDY.body);
+    FSTIDY.clearContents();
+    FSTIDY.getRange(1, 1, fsbody.length, fsbody[0].length).setValues(fsbody);
+    
+    /*
+    // tag sheet
+    fsbody = [['account', 'tag']].concat(TAGLIST);
+    sheet = FSS.getSheetByName('tag');
     sheet.clearContents();
     sheet.getRange(1, 1, fsbody.length, fsbody[0].length).setValues(fsbody);
+    */
 }
 
 // テーブルの作成 (FSARRAY を対象にする)
@@ -575,5 +648,6 @@ function test() {
     console.log(nodata);
     return;
     */
-    console.log(['aaa', '202025', '2020201', 'bbaaa', 'aaacc', 'abcd', 'aaa'].filter(x => x.match(/^[0-9]{6}$/)));
+    mkTidy();
+    console.log(TIDY);
 }
