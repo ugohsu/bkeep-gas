@@ -577,4 +577,3 @@ function test() {
     */
     console.log(['aaa', '202025', '2020201', 'bbaaa', 'aaacc', 'abcd', 'aaa'].filter(x => x.match(/^[0-9]{6}$/)));
 }
-
