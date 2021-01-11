@@ -2,7 +2,6 @@
 定数・グローバル変数の設定
 */
 
-
 // 外生的に決定する定数
 const JNLID = '1FO9Lpw8qpjuWtOi0hcdNxUH0O0_iASFEijPZs3q16uU';
 const FSID = '1o0hYHuFBy7f9336fCpZsC4up9N1qNjjyhr-KzkKfX-I'; // 財務諸表シートの ID
